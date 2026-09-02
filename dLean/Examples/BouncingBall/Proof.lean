@@ -1,6 +1,5 @@
-import dLean.Core.Ode
-import Mathlib.Analysis.Calculus.Deriv.Basic
-import dLean.Tactic.OdeDeriv
+import dLean.Core.ODE
+import dLean.Tactic.AutoDiff
 open Std.Do
 set_option mvcgen.warning false
 
@@ -22,22 +21,17 @@ def prog (g c r x v : ℝ) := do
   for _ in [:n] do
     if x = 0 then
       v := -c * v
-    (x, v) ← (evolve (up g r) updom
-              ∪ evolve (down g r) downdom) (x, v)
+    (x, v) ← (evolve (up g r) updom ∪ evolve (down g r) downdom) (x, v)
   return x
-
-def Safety : Prop :=
-  ∀ g H c r x v, (x ≤ H ∧ v = 0 ∧ 0 ≤ x) ∧ (0 < g ∧ c ≤ 1 ∧ 0 ≤ c ∧ 0 ≤ r) →
-      ∀ x_res ∈ SetM.run (prog g c r x v), 0 ≤ x_res ∧ x_res ≤ H
 
 @[simp] def energyGap (g H : ℝ) : ℝ × ℝ → ℝ
   | (x, v) => v ^ 2 + 2 * g * x - 2 * g * H
 
-@[simp] def upEnergyGap' (g r : ℝ) : ℝ × ℝ → ℝ
-  | (_x, v) => 2 * v * (-g - r * v ^ 2) + 2 * g * v
+-- @[simp] def upEnergyGap' (g r : ℝ) : ℝ × ℝ → ℝ
+--   | (_x, v) => 2 * v * (-g - r * v ^ 2) + 2 * g * v
 
-@[simp] def downEnergyGap' (g r : ℝ) : ℝ × ℝ → ℝ
-  | (_x, v) => 2 * v * (-g + r * v ^ 2) + 2 * g * v
+-- @[simp] def downEnergyGap' (g r : ℝ) : ℝ × ℝ → ℝ
+--   | (_x, v) => 2 * v * (-g + r * v ^ 2) + 2 * g * v
 
 @[simp] def invariant (g H : ℝ) : ℝ × ℝ → Prop
   | (x, v) => energyGap g H (x, v) ≤ 0 ∧ 0 ≤ x
@@ -45,8 +39,8 @@ def Safety : Prop :=
 theorem upward_preserves (g H r : ℝ) (hr : 0 ≤ r) :
     invariant g H [[evolve (up g r) updom]] invariant g H := by
   apply dC (cut := fun (x, v) => energyGap g H (x, v) ≤ 0)
-  · apply dIle (energyGap g H) (upEnergyGap' g r)
-    · ode_deriv [upEnergyGap', up]
+  · apply dIle (energyGap g H)
+    · autodiff
     · simp_all
     · intro (x, v) _
       simp
@@ -59,8 +53,8 @@ theorem upward_preserves (g H r : ℝ) (hr : 0 ≤ r) :
 theorem downward_preserves (g H r : ℝ) (hr : 0 ≤ r) :
     invariant g H [[evolve (down g r) downdom]] invariant g H := by
   apply dC (cut := fun (x, v) => energyGap g H (x, v) ≤ 0)
-  · apply dIle (energyGap g H) (downEnergyGap' g r)
-    · ode_deriv [downEnergyGap', down]
+  · apply dIle (energyGap g H)
+    · autodiff
     · simp_all
     · intro (x, v) _
       simp
@@ -81,9 +75,11 @@ theorem continuous_preserves (hr : 0 ≤ r) :
   · apply downward_preserves
     simp_all
 
-theorem aerodynamic_quantum_safe : Safety := by
-  intro g H c r x v hPre res hRun
-  apply SetM.of_wp_run_mem hRun
+theorem aerodynamic_quantum_safe :
+    ∀ g H c r x v, (x ≤ H ∧ v = 0 ∧ 0 ≤ x) ∧ (0 < g ∧ c ≤ 1 ∧ 0 ≤ c ∧ 0 ≤ r) →
+      ∀ x_res ∈ SetM.run (prog g c r x v), 0 ≤ x_res ∧ x_res ≤ H := by
+  intro g H c r x v hpre res hrun
+  apply SetM.of_wp_run_mem hrun
   unfold prog
   mvcgen
   intros

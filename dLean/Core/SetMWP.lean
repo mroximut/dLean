@@ -2,8 +2,8 @@ import Mathlib.Data.Set.Functor
 import Std.Tactic.Do
 
 /-!
-A universal weakest-precondition interpretation for mathlib's powerset monad `SetM`.
-This is the demonic interpretation of nondeterminism: every possible result must
+A universal weakest-precondition interpretation for the set monad `SetM`. This
+is the demonic interpretation of nondeterminism: every possible result must
 satisfy the postcondition.
 -/
 

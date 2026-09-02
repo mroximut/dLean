@@ -1,4 +1,4 @@
-import dLean.Core.Qode
+import dLean.Core.QODE
 import dLean.Tactic.QodeDeriv
 open Std.Do
 set_option mvcgen.warning false
@@ -30,12 +30,6 @@ def prog (created : Finset Car) (x v a : Car → ℝ) := do
     (x v a : Car → ℝ) : Prop :=
   ∀ i ∈ created, ∀ j ∈ created,
     i ≠ j → Ordered x v a i j ∨ Ordered x v a j i
-
-def Safety : Prop :=
-  ∀ created x v a, invariant created x v a →
-    ∀ res ∈ SetM.run (prog created x v a),
-      let (created', x_res) := res
-      ∀ i ∈ created', ∀ j ∈ created', i ≠ j → x_res i ≠ x_res j
 
 @[simp] def aGap (i j : Car) : CR3 → ℝ
   | (_, _, a) => a i - a j
@@ -80,14 +74,20 @@ theorem motion_preserves_invariant (created : Finset Car) :
     [[evolve (motion created) dom]]
     (fun (x, v, a) => invariant created x v a) := by
   apply (Ensures.iff_run _ _ _).mpr
-  intro (x, v, a) hInvariant (x', v', a') hEvolution i hi j hj hij
-  rcases hInvariant i hi j hj hij with hForward | hBackward
+  intro (x, v, a) hinv (x', v', a') hevo i hi j hj hij
+  rcases hinv i hi j hj hij with hforw | hback
   · exact Or.inl (ordered_preserved created i j hi hj
-      (x, v, a) hForward (x', v', a') hEvolution)
+      (x, v, a) hforw (x', v', a') hevo)
   · exact Or.inr (ordered_preserved created j i hj hi
-      (x, v, a) hBackward (x', v', a') hEvolution)
+      (x, v, a) hback (x', v', a') hevo)
 
-theorem dccs_collision_free : Safety := by
+theorem dccs_collision_free :
+    ∀ created x v a,
+      (∀ i ∈ created, ∀ j ∈ created,
+        i ≠ j → Ordered x v a i j ∨ Ordered x v a j i) →
+          ∀ res ∈ SetM.run (prog created x v a),
+          let (created', x_res) := res
+          ∀ i ∈ created', ∀ j ∈ created', i ≠ j → x_res i ≠ x_res j := by
   intro created x v a hinv res hrun
   apply SetM.of_wp_run_mem hrun
   unfold prog

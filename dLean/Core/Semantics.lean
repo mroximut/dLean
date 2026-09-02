@@ -1,7 +1,7 @@
 import Mathlib.Data.Real.Basic
 import Mathlib.Analysis.Calculus.MeanValue
 import Mathlib.Analysis.Calculus.Deriv.MeanValue
-import dLean.Core.SetMwp
+import dLean.Core.SetMWP
 open Std.Do
 
 abbrev HP (σ α : Type u) := σ → SetM α
@@ -15,8 +15,7 @@ def choose (α : Type u) : SetM α := Set.univ
 
 def chooseS (S : SetM α) : SetM α := S
 
-def test (P : Prop) : SetM Unit :=
-  fun _ => P
+def test (P : Prop) : SetM Unit := fun _ => P
 
 abbrev Box (p : HP σ α) (post : α → Prop) : σ → Prop :=
   fun st => (wp⟦p st⟧ (⇓ st' => ⌜post st'⌝)).down
@@ -60,8 +59,8 @@ theorem test_spec {condition : Prop} {Q : PostCond Unit .pure} :
 
 theorem hp_triple_iff_safe
     (prog : HP σ α) (P : σ → Prop) (Q : α → Prop) :
-    (∀ st, ⦃⌜P st⌝⦄ prog st ⦃⇓ st' => ⌜Q st'⌝⦄) ↔
-      ∀ st, P st → ∀ st' ∈ SetM.run (prog st), Q st' := by
+      (∀ st, ⦃⌜P st⌝⦄ prog st ⦃⇓ st' => ⌜Q st'⌝⦄) ↔
+        ∀ st, P st → ∀ st' ∈ SetM.run (prog st), Q st' := by
   constructor
   · intro h st
     exact (SetM.triple_iff_run (prog st) (P st) Q).mp (h st)
@@ -69,8 +68,8 @@ theorem hp_triple_iff_safe
     exact (SetM.triple_iff_run (prog st) (P st) Q).mpr (h st)
 
 def loop (p : HP σ σ) : HP σ σ := fun st => do
-  let n ← choose ℕ
   let mut st := st
+  let n ← choose ℕ
   for _ in [:n] do
     st ← p st
   return st
@@ -131,8 +130,8 @@ def IsEvolution
     (trajectory : ℝ → σ) (ode : SemanticODE σ) (domain : σ → Prop)
     (inital : σ) (duration : ℝ) : Prop :=
   trajectory 0 = inital ∧
-  (∀ t ∈ Set.Icc (0 : ℝ) duration, domain (trajectory t)) ∧
-  ode trajectory (Set.Icc (0 : ℝ) duration)
+    (∀ t ∈ Set.Icc 0 duration, domain (trajectory t)) ∧
+      ode trajectory (Set.Icc 0 duration)
 
 /--
 Interpret a semantic ODE as a hybrid program
@@ -151,8 +150,8 @@ theorem evolveSemantic_spec
     {Q : PostCond σ .pure} :
       ⦃⌜∀ duration : ℝ, 0 ≤ duration →
         ∀ trajectory : ℝ → σ, IsEvolution trajectory ode domain initial duration →
-          (Q.1 (trajectory duration)).down⌝⦄
-            evolveSemantic ode domain initial ⦃Q⦄ := by
+        (Q.1 (trajectory duration)).down⌝⦄
+        evolveSemantic ode domain initial ⦃Q⦄ := by
   apply Triple.iff.mpr
   intro h
   unfold evolveSemantic
@@ -166,30 +165,30 @@ theorem evolveSemantic_spec
   rcases hfinal with ⟨duration, hduration, trajectory, htrajectory, rfl⟩
   exact h duration hduration trajectory htrajectory
 
-/-- An ODE semantics is closed under restricting its time interval. -/
-def RestrictionClosed {σ : Type*} (ode : SemanticODE σ) : Prop :=
-  ∀ (trajectory : ℝ → σ) {smaller larger : Set ℝ}, smaller ⊆ larger →
-    ode trajectory larger → ode trajectory smaller
-
 /-- `f'` is the derivative of `f` along every trajectory of an ODE. -/
-def HasDerivative
-    {σ F : Type*} [NormedAddCommGroup F] [NormedSpace ℝ F]
-    (ode : SemanticODE σ) (f f' : σ → F) : Prop :=
+def HasPrime
+    [NormedAddCommGroup E] [NormedSpace ℝ E]
+    (ode : SemanticODE σ) (f f' : σ → E) : Prop :=
   ∀ trajectory interval, ode trajectory interval →
     ∀ t ∈ interval,
       HasDerivWithinAt
-      (fun τ => f (trajectory τ)) (f' (trajectory t)) interval t
+      (fun t => f (trajectory t)) (f' (trajectory t)) interval t
+
+namespace SemanticODE
+
+/-- An ODE semantics is closed under restricting its time interval. -/
+def RestrictionClosed (ode : SemanticODE σ) : Prop :=
+  ∀ (trajectory : ℝ → σ) {smaller larger : Set ℝ}, smaller ⊆ larger →
+    ode trajectory larger → ode trajectory smaller
 
 /--
 An ODE preserves a state relation between the initial state and
 every trajectory point.
 -/
-def PreservesAgreement {σ : Type*}
+def PreservesAgreement
     (ode : SemanticODE σ) (agrees : σ → σ → Prop) : Prop :=
   ∀ trajectory interval, ode trajectory interval →
     ∀ t ∈ interval, agrees (trajectory 0) (trajectory t)
-
-namespace SemanticODE
 
 /-- Build membership in a semantic evolution from an explicit trajectory witness. -/
 theorem mem_evolveSemantic
@@ -328,24 +327,39 @@ theorem preservedByDerivative_le : PreservedByDerivative (· ≤ ·) := by
       exact hNonpositive t (interior_subset ht)
   exact hAntitone ⟨le_rfl, hduration⟩ ⟨hduration, le_rfl⟩ hduration
 
+theorem preservedByDerivative_ge : PreservedByDerivative (· ≥ ·) := by
+  intro duration hduration f f' hDerivative hNonnegative
+  let interval := Set.Icc (0 : ℝ) duration
+  have hDifferentiable : DifferentiableOn ℝ f interval := by
+    intro t ht
+    exact (hDerivative t ht).differentiableWithinAt
+  have hMonotone : MonotoneOn f interval := by
+    apply monotoneOn_of_hasDerivWithinAt_nonneg (convex_Icc 0 duration)
+    · exact hDifferentiable.continuousOn
+    · intro t ht
+      exact (hDerivative t (interior_subset ht)).mono interior_subset
+    · intro t ht
+      exact hNonnegative t (interior_subset ht)
+  exact hMonotone ⟨le_rfl, hduration⟩ ⟨hduration, le_rfl⟩ hduration
+
 /--
 An invariant relation is preserved when derivative evolution composes with the
 initial invariant relation.
 -/
 theorem dInvariant
-    (change invariant : ℝ → ℝ → Prop)
-    (hCompose : ∀ a b c, change a b → invariant b c → invariant a c)
-    (hPreserved : PreservedByDerivative change)
+    (changeRel invariantRel : ℝ → ℝ → Prop)
+    (hCompose : ∀ a b c, changeRel a b → invariantRel b c → invariantRel a c)
+    (hPreserved : PreservedByDerivative changeRel)
     (ode : SemanticODE σ)
     (domain pre : σ → Prop)
     (f f' : σ → ℝ)
-    (hLieDerivative : HasDerivative ode f f')
-    (hInitial : ∀ st, pre st → invariant (f st) 0)
-    (hDerivative : ∀ st, domain st → change (f' st) 0) :
-    Ensures (evolveSemantic ode domain) pre (fun st => invariant (f st) 0) := by
+    (hLieDerivative : HasPrime ode f f')
+    (hInitial : ∀ st, pre st → invariantRel (f st) 0)
+    (hDerivative : ∀ st, domain st → changeRel (f' st) 0) :
+    Ensures (evolveSemantic ode domain) pre (fun st => invariantRel (f st) 0) := by
   intro initial hPre
   refine Triple.iff.mp (evolveSemantic_spec
-    (Q := PostCond.noThrow fun final => ⌜invariant (f final) 0⌝)
+    (Q := PostCond.noThrow fun final => ⌜invariantRel (f final) 0⌝)
       ode domain initial) ?_
   intro duration hDuration trajectory hEvolution
   have hAnalytic :
@@ -357,7 +371,7 @@ theorem dInvariant
     intro t ht
     exact hLieDerivative trajectory (Set.Icc 0 duration) hEvolution.2.2 t ht
   have hDerivativeRelation :
-      ∀ t ∈ Set.Icc (0 : ℝ) duration, change (f' (trajectory t)) 0 := by
+      ∀ t ∈ Set.Icc (0 : ℝ) duration, changeRel (f' (trajectory t)) 0 := by
     intro t ht
     exact hDerivative (trajectory t) (hEvolution.2.1 t ht)
   have hEndpointRelation :=
@@ -365,38 +379,51 @@ theorem dInvariant
       (fun t => f (trajectory t))
       (fun t => f' (trajectory t))
       hAnalytic hDerivativeRelation
-  have hInitialRelation : invariant (f (trajectory 0)) 0 := by
+  have hInitialRelation : invariantRel (f (trajectory 0)) 0 := by
     simpa [hEvolution.1] using hInitial initial hPre
   exact hCompose _ _ _ hEndpointRelation hInitialRelation
 
-/-- Semantic differential invariant rule for equality observables. -/
-theorem dInvariantEq
-    (ode : SemanticODE σ) (domain pre : σ → Prop)
-    (f f' : σ → ℝ) (hLieDerivative : HasDerivative ode f f')
-    (hInitial : ∀ st, pre st → f st = 0)
-    (hDerivative : ∀ st, domain st → f' st = 0) :
-    Ensures (evolveSemantic ode domain) pre (fun st => f st = 0) :=
-  dInvariant Eq Eq (fun _ _ _ => Eq.trans) preservedByDerivative_eq
-    ode domain pre f f' hLieDerivative hInitial hDerivative
-
-/-- Semantic differential invariant rule for nonincreasing scalar observables. -/
-theorem dInvariantLe
-    (ode : SemanticODE σ) (domain pre : σ → Prop)
-    (f f' : σ → ℝ) (hLieDerivative : HasDerivative ode f f')
-    (hInitial : ∀ st, pre st → f st ≤ 0)
-    (hDerivative : ∀ st, domain st → f' st ≤ 0) :
-    Ensures (evolveSemantic ode domain) pre (fun st => f st ≤ 0) :=
-  dInvariant (· ≤ ·) (· ≤ ·) (fun _ _ _ => le_trans) preservedByDerivative_le
-    ode domain pre f f' hLieDerivative hInitial hDerivative
-
-/-- Semantic differential invariant rule for strict sublevel observables. -/
-theorem dInvariantLt
-    (ode : SemanticODE σ) (domain pre : σ → Prop)
-    (f f' : σ → ℝ) (hLieDerivative : HasDerivative ode f f')
-    (hInitial : ∀ st, pre st → f st < 0)
-    (hDerivative : ∀ st, domain st → f' st ≤ 0) :
-    Ensures (evolveSemantic ode domain) pre (fun st => f st < 0) :=
-  dInvariant (· ≤ ·) (· < ·) (fun _ _ _ => lt_of_le_of_lt) preservedByDerivative_le
-    ode domain pre f f' hLieDerivative hInitial hDerivative
-
 end SemanticODE
+
+open SemanticODE
+
+/-- A relation on observables together with the derivative relation that preserves it. -/
+class DInvariantRelation
+    (invariantRel : ℝ → ℝ → Prop)
+    (changeRel : outParam (ℝ → ℝ → Prop)) : Prop where
+  compose : ∀ a b c, changeRel a b → invariantRel b c → invariantRel a c
+  preserved : PreservedByDerivative changeRel
+
+instance : DInvariantRelation Eq Eq where
+  compose _ _ _ := Eq.trans
+  preserved := preservedByDerivative_eq
+
+instance : DInvariantRelation (· ≤ ·) (· ≤ ·) where
+  compose _ _ _ := le_trans
+  preserved := preservedByDerivative_le
+
+instance : DInvariantRelation (· < ·) (· ≤ ·) where
+  compose _ _ _ := lt_of_le_of_lt
+  preserved := preservedByDerivative_le
+
+instance : DInvariantRelation (· ≥ ·) (· ≥ ·) where
+  compose _ _ _ hge₁ hge₂ := hge₂.trans hge₁
+  preserved := preservedByDerivative_ge
+
+instance : DInvariantRelation (· > ·) (· ≥ ·) where
+  compose _ _ _ hge hgt := hgt.trans_le hge
+  preserved := preservedByDerivative_ge
+
+/-- Semantic differential invariant rule with relations selected by typeclass inference. -/
+theorem semanticDI
+    (invariantRel : ℝ → ℝ → Prop)
+    {changeRel : ℝ → ℝ → Prop}
+    [rule : DInvariantRelation invariantRel changeRel]
+    (ode : SemanticODE σ) (domain pre : σ → Prop)
+    (f f' : σ → ℝ)
+    (hprime : HasPrime ode f f')
+    (hinit : ∀ st, pre st → invariantRel (f st) 0)
+    (hchange : ∀ st, domain st → changeRel (f' st) 0) :
+    Ensures (evolveSemantic ode domain) pre (fun st => invariantRel (f st) 0) :=
+  dInvariant changeRel invariantRel rule.compose rule.preserved
+    ode domain pre f f' hprime hinit hchange

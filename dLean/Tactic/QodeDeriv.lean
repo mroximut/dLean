@@ -1,24 +1,24 @@
-import dLean.Core.Qode
+import dLean.Core.QODE
 import dLean.Tactic.OdeDeriv
 
-namespace Coordinatewise
+namespace Derivable
 
 /-- Project a coordinatewise derivative through the first component of a product. -/
 theorem deriv_fst
-    {E₁ E₂ : Type} [Coordinatewise I E₁] [Coordinatewise I E₂]
+    {E₁ E₂ : Type} [Derivable I E₁] [Derivable I E₂]
     {created : Set I} {trajectory : ℝ → E₁ × E₂} {rhs : E₁ × E₂}
     {interval : Set ℝ} {t : ℝ}
-    (h : deriv created trajectory rhs interval t) :
-    deriv created (fun τ => (trajectory τ).1) rhs.1 interval t :=
+    (h : has_deriv created trajectory rhs interval t) :
+    has_deriv created (fun τ => (trajectory τ).1) rhs.1 interval t :=
   h.1
 
 /-- Project a coordinatewise derivative through the second component of a product. -/
 theorem deriv_snd
-    {E₁ E₂ : Type} [Coordinatewise I E₁] [Coordinatewise I E₂]
+    {E₁ E₂ : Type} [Derivable I E₁] [Derivable I E₂]
     {created : Set I} {trajectory : ℝ → E₁ × E₂} {rhs : E₁ × E₂}
     {interval : Set ℝ} {t : ℝ}
-    (h : deriv created trajectory rhs interval t) :
-    deriv created (fun τ => (trajectory τ).2) rhs.2 interval t :=
+    (h : has_deriv created trajectory rhs interval t) :
+    has_deriv created (fun τ => (trajectory τ).2) rhs.2 interval t :=
   h.2
 
 /-- Extract the derivative of one active coordinate from a function-valued state. -/
@@ -26,12 +26,12 @@ theorem hasDerivWithinAt_apply
     {F : Type} [NormedAddCommGroup F] [NormedSpace ℝ F]
     {created : Set I} {trajectory : ℝ → I → F} {rhs : I → F}
     {interval : Set ℝ} {t : ℝ}
-    (h : deriv created trajectory rhs interval t)
+    (h : has_deriv created trajectory rhs interval t)
     (i : I) (hi : i ∈ created) :
     HasDerivWithinAt (fun τ => trajectory τ i) (rhs i) interval t :=
   h i hi
 
-end Coordinatewise
+end Derivable
 
 syntax "qode_deriv_step" : tactic
 
@@ -40,6 +40,9 @@ macro_rules
       `(tactic|
         first
         | assumption
+        | solve_by_elim [Derivable.hasDerivWithinAt_apply,
+            Derivable.deriv_fst, Derivable.deriv_snd,
+            OdeDeriv.hasDerivWithinAt_fst, OdeDeriv.hasDerivWithinAt_snd]
         | (apply OdeDeriv.hasDerivWithinAt_add_apply <;> qode_deriv_step)
         | (apply OdeDeriv.hasDerivWithinAt_sub_apply <;> qode_deriv_step)
         | (apply OdeDeriv.hasDerivWithinAt_neg_apply <;> qode_deriv_step)
@@ -48,13 +51,13 @@ macro_rules
         | (apply OdeDeriv.hasDerivWithinAt_cos_apply <;> qode_deriv_step)
         | (apply OdeDeriv.hasDerivWithinAt_mul_apply <;> qode_deriv_step)
         | (apply OdeDeriv.hasDerivWithinAt_inner_apply <;> qode_deriv_step)
-        | (apply Coordinatewise.hasDerivWithinAt_apply <;>
+        | (apply Derivable.hasDerivWithinAt_apply <;>
             first
             | assumption
-            | solve_by_elim [Coordinatewise.deriv_fst, Coordinatewise.deriv_snd])
+            | solve_by_elim [Derivable.deriv_fst, Derivable.deriv_snd])
         | apply hasDerivWithinAt_const)
 
-/-- Prove a scalar `HasDerivative` goal along an indexed QODE. -/
+/-- Prove a scalar `HasPrime` goal along an indexed QODE. -/
 syntax "qode_deriv" " [" term,* "]" : tactic
 
 macro_rules
@@ -70,4 +73,4 @@ macro_rules
            | qode_deriv_step
            | (simp -failIfUnchanged only
                 [Pi.zero_apply, Function.comp_apply, $simpDefinitions,*] <;>
-              ring)))
+              ring_nf)))

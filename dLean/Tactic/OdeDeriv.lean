@@ -1,7 +1,7 @@
 import Mathlib.Analysis.InnerProductSpace.Calculus
 import Mathlib.Analysis.SpecialFunctions.Trigonometric.Deriv
 import Mathlib.Tactic.Ring
-import dLean.Core.Ode
+import dLean.Core.ODE
 
 open scoped RealInnerProductSpace
 
@@ -108,7 +108,7 @@ macro_rules
         | (apply OdeDeriv.hasDerivWithinAt_apply <;> ode_deriv_step)
         | apply hasDerivWithinAt_const)
 
-/-- Prove a scalar `HasDerivative` goal along an ordinary vector-field ODE. -/
+/-- Prove a scalar `HasPrime` goal along an ordinary vector-field ODE. -/
 syntax "ode_deriv" " [" term,* "]" : tactic
 
 macro_rules

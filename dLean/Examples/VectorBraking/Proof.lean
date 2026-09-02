@@ -1,5 +1,4 @@
-import dLean.Core.Ode
-import Mathlib.Analysis.Calculus.Deriv.Basic
+import dLean.Core.ODE
 import dLean.Tactic.OdeDeriv
 open Std.Do
 set_option mvcgen.warning false
@@ -20,11 +19,6 @@ def prog (B v : ℝ) (x : V) := do
     let d ← choose {d : V // ‖d‖ = 1}
     (x, v) ← evolve (brake (d : V) B) dom (x, v)
   return x
-
-def Safety : Prop :=
-  ∀ B v (x : V),
-    0 < B ∧ 0 < v ∧ v ^ 2 / (2 * B) < ‖x‖ →
-      ∀ x_res ∈ SetM.run (prog B v x), x_res ≠ 0
 
 @[simp] def margin (u : V) (eps B : ℝ) : V × ℝ → ℝ
   | (x, v) => v ^ 2 - 2 * B * ⟪u, x⟫ + eps
@@ -89,7 +83,10 @@ theorem initial_invariant
   rw [hn_inner]
   linarith
 
-theorem vector_braking_safe : Safety (V := V) := by
+theorem vector_braking_safe :
+    ∀ B v (x : V),
+      0 < B ∧ 0 < v ∧ v ^ 2 / (2 * B) < ‖x‖ →
+        ∀ x_res ∈ SetM.run (prog B v x), x_res ≠ 0 := by
   intro B v x hpre x' hrun
   apply SetM.of_wp_run_mem hrun
   unfold prog
