@@ -81,7 +81,7 @@ theorem motion_preserves_invariant (created : Finset Car) :
   · exact Or.inr (ordered_preserved created j i hj hi
       (x, v, a) hback (x', v', a') hevo)
 
-theorem dccs_collision_free :
+theorem collision_freedom :
     ∀ created x v a,
       (∀ i ∈ created, ∀ j ∈ created,
         i ≠ j → Ordered x v a i j ∨ Ordered x v a j i) →

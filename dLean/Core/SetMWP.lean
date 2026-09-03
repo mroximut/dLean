@@ -52,9 +52,9 @@ theorem SetM.triple_iff_run
     exact h hP x hx
 
 theorem SetM.of_wp_run_mem
-    {p : SetM α} {result : α} (hResult : result ∈ SetM.run p) (post : α → Prop)
-    (hWP : (wp⟦p⟧ (⇓result => ⌜post result⌝)).down) : post result := by
-  exact hWP result hResult
+    {p : SetM α} {res : α} (hres : res ∈ SetM.run p) (post : α → Prop)
+    (hWP : (wp⟦p⟧ (⇓res => ⌜post res⌝)).down) : post res := by
+  exact hWP res hres
 
 theorem SetM.wp_orElse (xs ys : SetM α) {Q : PostCond α .pure}
     (hxs : (wp⟦xs⟧ Q).down) (hys : (wp⟦ys⟧ Q).down) :

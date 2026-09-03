@@ -26,7 +26,7 @@ def prog (created : Finset Car) (x v a : Car → ℝ) := do
     (x, v, a) ← evolve (motion created) dom (x, v, a)
   return (created, x)
 
-theorem dccs_collision_free :
+theorem collision_freedom :
     ∀ created x v a,
       (∀ i ∈ created, ∀ j ∈ created,
         i ≠ j → Ordered x v a i j ∨ Ordered x v a j i) →

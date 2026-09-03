@@ -4,9 +4,11 @@ import Mathlib.Analysis.Calculus.Deriv.MeanValue
 import dLean.Core.SetMWP
 open Std.Do
 
-abbrev HP (σ α : Type u) := σ → SetM α
+/-!
+A hybrid program is represented as a function that returns SetM α.
+-/
 
-instance : Union (HP σ α) where
+instance {σ α : Type u} : Union (σ → SetM α) where
   union p q st := p st <|> q st
 
 def abort : SetM α := fun _ => False
@@ -17,16 +19,37 @@ def chooseS (S : SetM α) : SetM α := S
 
 def test (P : Prop) : SetM Unit := fun _ => P
 
-abbrev Box (p : HP σ α) (post : α → Prop) : σ → Prop :=
-  fun st => (wp⟦p st⟧ (⇓ st' => ⌜post st'⌝)).down
+abbrev Box (prog : σ → SetM α) (post : α → Prop) : σ → Prop :=
+  fun st => (wp⟦prog st⟧ (⇓ res => ⌜post res⌝)).down
 
 notation:25 "[["p"]] " post => Box p post
 
 abbrev Ensures
-    (p : HP σ α) (pre : σ → Prop) (post : α → Prop) : Prop :=
-  ∀ st, pre st → (Box p post) st
+    (prog : σ → SetM α) (pre : σ → Prop) (post : α → Prop) : Prop :=
+  ∀ st, pre st → (Box prog post) st
 
 notation:25 pre " [["p"]] " post => Ensures p pre post
+
+theorem Box.iff_run (prog : σ → SetM α) (post : α → Prop) (st : σ) :
+  (Box prog post) st ↔ (∀ st', st' ∈ SetM.run (prog st) → post st') := by rfl
+
+namespace Ensures
+
+theorem iff_run (p : σ → SetM α) (pre : σ → Prop) (post : α → Prop) :
+  Ensures p pre post ↔
+    ∀ st, pre st → ∀ st', st' ∈ SetM.run (p st) → post st' := by rfl
+
+theorem iff_triple (p : σ → SetM α) (pre : σ → Prop) (post : α → Prop) :
+  Ensures p pre post ↔ ∀ st, ⦃⌜pre st⌝⦄ p st ⦃⇓ st' => ⌜post st'⌝⦄ := by rfl
+
+theorem nondet_choice
+    {p q : σ → SetM α} {pre : σ → Prop} {post : α → Prop}
+    (hleft : Ensures p pre post) (hright : Ensures q pre post) :
+    Ensures (p ∪ q) pre post := by
+  intro st hpre
+  exact SetM.wp_orElse _ _ (hleft st hpre) (hright st hpre)
+
+end Ensures
 
 @[spec]
 theorem choose_spec {Q : PostCond α .pure} :
@@ -46,75 +69,15 @@ theorem chooseS_spec {Q : PostCond α .pure} :
 theorem abort_spec {Q : PostCond α .pure} :
     ⦃⌜True⌝⦄ abort ⦃Q⦄ := by
   apply Triple.iff.mpr
-  intro _ result hresult
-  exact False.elim hresult
+  intro _ res hres
+  exact False.elim hres
 
 @[spec]
-theorem test_spec {condition : Prop} {Q : PostCond Unit .pure} :
-    ⦃⌜condition → (Q.1 ()).down⌝⦄ test condition ⦃Q⦄ := by
+theorem test_spec {P : Prop} {Q : PostCond Unit .pure} :
+    ⦃⌜P → (Q.1 ()).down⌝⦄ test P ⦃Q⦄ := by
   apply Triple.iff.mpr
-  intro h result hResult
-  rcases result with ⟨⟩
-  exact h hResult
-
-theorem hp_triple_iff_safe
-    (prog : HP σ α) (P : σ → Prop) (Q : α → Prop) :
-      (∀ st, ⦃⌜P st⌝⦄ prog st ⦃⇓ st' => ⌜Q st'⌝⦄) ↔
-        ∀ st, P st → ∀ st' ∈ SetM.run (prog st), Q st' := by
-  constructor
-  · intro h st
-    exact (SetM.triple_iff_run (prog st) (P st) Q).mp (h st)
-  · intro h st
-    exact (SetM.triple_iff_run (prog st) (P st) Q).mpr (h st)
-
-def loop (p : HP σ σ) : HP σ σ := fun st => do
-  let mut st := st
-  let n ← choose ℕ
-  for _ in [:n] do
-    st ← p st
-  return st
-
-namespace Ensures
-
-theorem iff_run (p : HP σ α) (pre : σ → Prop) (post : α → Prop) :
-    Ensures p pre post ↔
-      ∀ st, pre st → ∀ st', st' ∈ SetM.run (p st) → post st' := by
-  constructor
-  · intro h st hPre st' hResult
-    exact h st hPre st' hResult
-  · intro h st hPre st' hResult
-    exact h st hPre st' hResult
-
-theorem iff_triple (p : HP σ α) (pre : σ → Prop) (post : α → Prop) :
-    Ensures p pre post ↔
-      ∀ st, ⦃⌜pre st⌝⦄ p st ⦃⇓ st' => ⌜post st'⌝⦄ :=
-  (iff_run p pre post).trans (hp_triple_iff_safe p pre post).symm
-
-theorem and
-    {p : HP σ α} {pre : σ → Prop} {left right : α → Prop}
-    (hLeft : Ensures p pre left)
-    (hRight : Ensures p pre right) :
-    Ensures p pre (fun st => left st ∧ right st) := by
-  intro st hPre
-  exact SetM.wp_and _ (hLeft st hPre) (hRight st hPre)
-
-theorem consequence
-    {p : HP σ α} {pre : σ → Prop} {post result : α → Prop}
-    (hRule : Ensures p pre post)
-    (hPost : ∀ st, post st → result st) :
-    Ensures p pre result := by
-  intro st hPre st' hResult
-  exact hPost st' (hRule st hPre st' hResult)
-
-theorem nondet_choice
-    {p q : HP σ α} {pre : σ → Prop} {post : α → Prop}
-    (hLeft : Ensures p pre post)
-    (hRight : Ensures q pre post) :
-    Ensures (p ∪ q) pre post := by
-  intro st hPre
-  exact SetM.wp_orElse _ _ (hLeft st hPre) (hRight st hPre)
-
-end Ensures
+  intro h res hres
+  exact h hres
 
 /--
 Specifies whether a trajectory, i.e a mapping from
@@ -137,7 +100,7 @@ def IsEvolution
 Interpret a semantic ODE as a hybrid program
 -/
 def evolveSemantic
-    (ode : SemanticODE σ) (domain : σ → Prop) : HP σ σ := fun st => do
+    (ode : SemanticODE σ) (domain : σ → Prop) : σ → SetM σ := fun st => do
   let duration ← {duration : ℝ | 0 ≤ duration}
   let trajectory ← {
     trajectory : ℝ → σ | IsEvolution trajectory ode domain st duration
