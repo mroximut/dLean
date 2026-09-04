@@ -1,5 +1,5 @@
 import dLean.Core.ODE
-import dLean.Tactic.OdeDeriv
+import dLean.Tactic.AutoDiff
 open dLean
 open Std.Do
 set_option mvcgen.warning false
@@ -29,16 +29,16 @@ def prog (B v : ℝ) (x : V) := do
     ∃ u : V, ‖u‖ = 1 ∧
       ∃ eps : ℝ, 0 < eps ∧ margin u eps B (x, v) ≤ 0
 
-@[simp] def margin' (u d : V) (B : ℝ) : V × ℝ → ℝ
-  | (_x, v) => -2 * B * v * (1 + ⟪u, d⟫)
+-- @[simp] def margin' (u d : V) (B : ℝ) : V × ℝ → ℝ
+--   | (_x, v) => -2 * B * v * (1 + ⟪u, d⟫)
 
 theorem margin_preserved
     (u d : V) (eps B : ℝ) (hB : 0 < B) (hu : ‖u‖ = 1) (hd : ‖d‖ = 1) :
     (fun (x, v) => margin u eps B (x, v) ≤ 0)
     [[evolve (brake d B) dom]]
     (fun (x, v) => margin u eps B (x, v) ≤ 0) := by
-  apply dIle (margin u eps B) (margin' u d B)
-  · ode_deriv [margin', brake, inner_smul_right, inner_zero_left]
+  apply dIle (margin u eps B)
+  · autodiff
   · simp_all
   · intro (x, v) _
     have : 0 ≤ 1 + ⟪u, d⟫ := by

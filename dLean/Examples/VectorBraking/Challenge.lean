@@ -1,5 +1,5 @@
 import dLean.Core.ODE
-import dLean.Tactic.OdeDeriv
+import dLean.Tactic.AutoDiff
 open dLean
 open Std.Do
 set_option mvcgen.warning false

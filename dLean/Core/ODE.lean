@@ -13,7 +13,7 @@ The `ODE` instance is provided for autonomous vector fields `E → E`.
 The `evolve` operator then interprets any `Denotable` ODE as a hybrid
 program subject to an evolution-domain constraint.
 
-The remainder of the module provides representation-independent proof rules for
+The remainder of the module provides representation-independent proof rules
 differential cut, differential weakening, and differential invariant.
 Specialized invariant rules cover equality as well as non-strict and
 strict inequalities.
@@ -99,7 +99,7 @@ theorem dI
     [rule : DInvariantRelation invariantRel changeRel]
     {ode : α} {domain pre : σ → Prop}
     (f f' : σ → ℝ)
-    (hprime : HasPrime (Denotable.denotation ode) f f')
+    (hprime : HasPrime (Denotable.denotation ode) domain f f')
     (hinit : ∀ st, pre st → invariantRel (f st) 0)
     (hchange : ∀ st, domain st → changeRel (f' st) 0) :
     Ensures (evolve ode domain) pre (fun st => invariantRel (f st) 0) :=
@@ -113,7 +113,7 @@ zero and has derivative zero remains zero after the evolution.
 theorem dIeq
     [Denotable α σ] {ode : α} {domain pre : σ → Prop}
     (f f' : σ → ℝ)
-    (hprime : HasPrime (Denotable.denotation ode) f f')
+    (hprime : HasPrime (Denotable.denotation ode) domain f f')
     (hinit : ∀ st, pre st → f st = 0)
     (hprime_zero : ∀ st, domain st → f' st = 0) :
     Ensures (evolve ode domain) pre (fun st => f st = 0) :=
@@ -127,7 +127,7 @@ after the evolution.
 theorem dIle
     [Denotable α σ] {ode : α} {domain pre : σ → Prop}
     (f f' : σ → ℝ)
-    (hprime : HasPrime (Denotable.denotation ode) f f')
+    (hprime : HasPrime (Denotable.denotation ode) domain f f')
     (hinit : ∀ st, pre st → f st ≤ 0)
     (hprime_le : ∀ st, domain st → f' st ≤ 0) :
     Ensures (evolve ode domain) pre (fun st => f st ≤ 0) :=
@@ -141,7 +141,7 @@ after the evolution.
 theorem dIlt
     [Denotable α σ] {ode : α} {domain pre : σ → Prop}
     (f f' : σ → ℝ)
-    (hprime : HasPrime (Denotable.denotation ode) f f')
+    (hprime : HasPrime (Denotable.denotation ode) domain f f')
     (hinit : ∀ st, pre st → f st < 0)
     (hprime_le : ∀ st, domain st → f' st ≤ 0) :
     Ensures (evolve ode domain) pre (fun st => f st < 0) :=
@@ -155,7 +155,7 @@ after the evolution.
 theorem dIge
     [Denotable α σ] {ode : α} {domain pre : σ → Prop}
     (f f' : σ → ℝ)
-    (hprime : HasPrime (Denotable.denotation ode) f f')
+    (hprime : HasPrime (Denotable.denotation ode) domain f f')
     (hinit : ∀ st, pre st → f st ≥ 0)
     (hprime_ge : ∀ st, domain st → f' st ≥ 0) :
     Ensures (evolve ode domain) pre (fun st => f st ≥ 0) :=
@@ -169,7 +169,7 @@ after the evolution.
 theorem dIgt
     [Denotable α σ] {ode : α} {domain pre : σ → Prop}
     (f f' : σ → ℝ)
-    (hprime : HasPrime (Denotable.denotation ode) f f')
+    (hprime : HasPrime (Denotable.denotation ode) domain f f')
     (hinit : ∀ st, pre st → f st > 0)
     (hprime_ge : ∀ st, domain st → f' st ≥ 0) :
     Ensures (evolve ode domain) pre (fun st => f st > 0) :=

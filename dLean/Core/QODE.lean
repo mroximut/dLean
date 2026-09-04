@@ -3,15 +3,17 @@ import dLean.Core.ODE
 /-!
 # QODE
 
-This module defines quantified ordinary differential equations, i.e. ODEs over
-function-valued states. A quantified ODE consists of a set of active indices
-together with a vector field, e.g. `Set I × ((I → ℝ) → (I → ℝ))`, where `I`
-is the index type. If, e.g. `x : I → ℝ` denotes the position for every car
-and `v : I → ℝ` their velocity, then the vector field would send `x` to `v`,
-corresponding to the fact that for all active indices `i` `x(i)` has the time
-derivative `v(i)`. During an evolution, the differential equation constrains
-every active coordinate simultaneously; coordinates outside the active set
-remain unconstrained.
+This module defines quantified ordinary differential equations as ODEs over
+function-valued states.
+
+A quantified ODE consists of a set of active indices together with a function
+assigning a derivative to each state, e.g. `Set I × ((I → ℝ) → (I → ℝ))`,
+where `I` is the index type. If, e.g. `x : I → ℝ` denotes the position for
+every car and `v : I → ℝ` their velocity, then the function would send
+`x` to `v`, corresponding to the fact that for all active indices `i`,
+`x(i)` has the time-derivative `v(i)`. During an evolution, the differential
+equation constrains every active coordinate simultaneously; coordinates outside
+the active set remain unconstrained.
 
 The `QODE` instance interprets a pair `Set I × (F → F)` as a `Denotable` ODE.
 Quantified ODEs can therefore use the same `evolve` operator and differential
@@ -56,7 +58,7 @@ instance functionCoordinatewise
 
 /--
 Coordinatewise differentiation for product states, obtained by differentiating
-both components coordinatewise.
+both components (that are either products or function-valued states) recursively.
 -/
 instance productCoordinatewise
     [Derivable I F₁] [Derivable I F₂] : Derivable I (F₁ × F₂) where
@@ -66,11 +68,12 @@ instance productCoordinatewise
   mono := by grind only [Derivable.mono]
 
 /--
-A quantified ODE is an "active" set of indices together with a vector
-field on a state type that supports coordinatewise differentiation.
+A quantified ODE is an active set of indices together with a together with a
+function assigning a derivative to each state where the state type is
+`Derivable`, i.e a combination of product and function-valued states supporting
+coordinatewise differentiation.
 -/
-instance QODE
-    [Derivable I F] : Denotable (Set I × (F → F)) F where
+instance QODE [Derivable I F] : Denotable (Set I × (F → F)) F where
   denotation := fun qode : Set I × (F → F) =>
     fun trajectory interval => ∀ t ∈ interval,
       Derivable.has_deriv qode.1 trajectory (qode.2 (trajectory t)) interval t
