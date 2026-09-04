@@ -1,5 +1,25 @@
 import dLean.Core.ODE
 
+/-!
+# QODE
+
+This module defines quantified ordinary differential equations, i.e. ODEs over
+function-valued states. A quantified ODE consists of a set of active indices
+together with a vector field, e.g. `Set I × ((I → ℝ) → (I → ℝ))`, where `I`
+is the index type. If, e.g. `x : I → ℝ` denotes the position for every car
+and `v : I → ℝ` their velocity, then the vector field would send `x` to `v`,
+corresponding to the fact that for all active indices `i` `x(i)` has the time
+derivative `v(i)`. During an evolution, the differential equation constrains
+every active coordinate simultaneously; coordinates outside the active set
+remain unconstrained.
+
+The `QODE` instance interprets a pair `Set I × (F → F)` as a `Denotable` ODE.
+Quantified ODEs can therefore use the same `evolve` operator and differential
+proof rules as the ordinary ODEs defined in `dLean.Core.ODE`.
+-/
+
+namespace dLean
+
 /--
 An indexed derivative relation for `F`-valued trajectories.
 
@@ -55,3 +75,5 @@ instance QODE
     fun trajectory interval => ∀ t ∈ interval,
       Derivable.has_deriv qode.1 trajectory (qode.2 (trajectory t)) interval t
   rest_closed qode := by grind [Derivable.mono, SemanticODE.RestrictionClosed]
+
+end dLean

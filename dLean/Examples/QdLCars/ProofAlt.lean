@@ -1,5 +1,6 @@
 import dLean.Core.QODE
 import dLean.Tactic.QodeDeriv
+open dLean
 open Std.Do
 set_option mvcgen.warning false
 

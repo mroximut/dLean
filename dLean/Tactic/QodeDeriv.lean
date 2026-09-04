@@ -1,6 +1,7 @@
 import dLean.Core.QODE
 import dLean.Tactic.OdeDeriv
 
+namespace dLean
 namespace Derivable
 
 /-- Project a coordinatewise derivative through the first component of a product. -/
@@ -74,3 +75,5 @@ macro_rules
            | (simp -failIfUnchanged only
                 [Pi.zero_apply, Function.comp_apply, $simpDefinitions,*] <;>
               ring_nf)))
+
+end dLean

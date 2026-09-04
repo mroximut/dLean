@@ -2,11 +2,24 @@ import Mathlib.Data.Set.Functor
 import Std.Tactic.Do
 
 /-!
-A universal weakest-precondition interpretation for the set monad `SetM`. This
-is the demonic interpretation of nondeterminism: every possible result must
-satisfy the postcondition.
+# SetMWP
+
+A weakest-precondition interpretation for the set monad `SetM`. Monadic
+`SetM` programs can be thought of as nondeterministic programs where the
+output set contains the results from every possible run of the program. This
+is the demonic interpretation of nondeterminism, so the weakest precondition
+with respect to a given postcondition requires every possible result to
+satisfy that postcondition. Implementing the typeclasses `WP` and `WPMonad`
+enables the usage of `mvcgen` framework in proofs involving monadic
+`SetM` programs.
+
+As an example, `(wp⟦p⟧ (⇓res => ⌜Q res⌝)).down` for a set `p` is defined
+to mean the same as `∀ x ∈ SetM.run p, Q x`. That means every element
+in `p` (in other words every possible result of the nondeterministic
+monadic program `p`) satisfies Q.
 -/
 
+namespace dLean
 open Std.Do
 
 instance : WP SetM .pure where
@@ -40,33 +53,28 @@ instance : WPMonad SetM .pure where
       rcases hy with ⟨x, hx, hy⟩
       exact h x hx y hy
 
-theorem SetM.triple_iff_run
-    (p : SetM α) (P : Prop) (Q : α → Prop) :
-    (⦃⌜P⌝⦄ p ⦃⇓ x => ⌜Q x⌝⦄) ↔ (P → ∀ x ∈ SetM.run p, Q x) := by
-  constructor
-  · intro h hP x hx
-    exact Triple.iff.mp h hP x hx
-  · intro h
-    apply Triple.iff.mpr
-    intro hP x hx
-    exact h hP x hx
+theorem SetM.wp_iff_run
+  (p : SetM α) (Q : α → Prop) :
+  ((wp⟦p⟧ (⇓res => ⌜Q res⌝)).down) ↔ (∀ x ∈ SetM.run p, Q x) := by rfl
 
 theorem SetM.of_wp_run_mem
     {p : SetM α} {res : α} (hres : res ∈ SetM.run p) (post : α → Prop)
     (hWP : (wp⟦p⟧ (⇓res => ⌜post res⌝)).down) : post res := by
   exact hWP res hres
 
-theorem SetM.wp_orElse (xs ys : SetM α) {Q : PostCond α .pure}
-    (hxs : (wp⟦xs⟧ Q).down) (hys : (wp⟦ys⟧ Q).down) :
-    (wp⟦xs <|> ys⟧ Q).down := by
-  intro result hresult
-  change result ∈ SetM.run xs ∪ SetM.run ys at hresult
-  rcases hresult with hresult | hresult
-  · exact hxs result hresult
-  · exact hys result hresult
+theorem SetM.wp_orElse
+    (S S' : SetM α) {Q : PostCond α .pure}
+    (hxs : (wp⟦S⟧ Q).down) (hys : (wp⟦S'⟧ Q).down) :
+    (wp⟦S <|> S'⟧ Q).down := by
+  intro res hres
+  rcases hres with hres | hres
+  · exact hxs res hres
+  · exact hys res hres
 
-theorem SetM.wp_and (xs : SetM α) {P Q : PostCond α .pure}
-    (hP : (wp⟦xs⟧ P).down) (hQ : (wp⟦xs⟧ Q).down) :
-    (wp⟦xs⟧ (P ∧ₚ Q)).down := by
-  intro result hresult
-  exact ⟨hP result hresult, hQ result hresult⟩
+theorem SetM.wp_and (S : SetM α) {P Q : PostCond α .pure}
+    (hP : (wp⟦S⟧ P).down) (hQ : (wp⟦S⟧ Q).down) :
+    (wp⟦S⟧ (P ∧ₚ Q)).down := by
+  intro res hres
+  exact ⟨hP res hres, hQ res hres⟩
+
+end dLean

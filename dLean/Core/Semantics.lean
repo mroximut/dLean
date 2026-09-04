@@ -2,36 +2,65 @@ import Mathlib.Data.Real.Basic
 import Mathlib.Analysis.Calculus.MeanValue
 import Mathlib.Analysis.Calculus.Deriv.MeanValue
 import dLean.Core.SetMWP
-open Std.Do
 
 /-!
-A hybrid program is represented as a function that returns SetM α.
+# Semantics
+
+This module defines the semantic foundation for hybrid programs.
+
+A hybrid program from states of type `σ` to results of type `α` is represented
+by a function `σ → SetM α`. For each initial state, the returned set contains
+the results of all possible runs of the program. The monadic structure of
+`SetM` supports sequential composition and nondeterministic choice using
+Lean's `do` notation.
+
+Continuous dynamics are described extensionally by the type `SemanticODE`.
+A `SemanticODE` is a predicate on trajectories and time intervals.
+`evolveSemantic` interprets such a description as a hybrid program.
+The module also proves semantic versions of differential weakening,
+differential cut, and differential invariant rules.
 -/
 
+namespace dLean
+open Std.Do
+
+/-- Notation for nondeterministic choice -/
 instance {σ α : Type u} : Union (σ → SetM α) where
   union p q st := p st <|> q st
 
+/-- `abort` statement inside a program makes it return the empty set -/
 def abort : SetM α := fun _ => False
 
+/-- `x ← choose α` nondeterministically choose a value `x` of type `α` -/
 def choose (α : Type u) : SetM α := Set.univ
 
+/-- `x ← chooseS S` nondeterministically chooses an `x ∈ S` -/
 def chooseS (S : SetM α) : SetM α := S
 
+/-- On most cases this is not needed and `if` statements can be used instead -/
 def test (P : Prop) : SetM Unit := fun _ => P
 
+/--
+`Box prog post` is true for a state `st` iff after every successful run
+of `prog`, `post` holds for the result of `prog`.
+-/
 abbrev Box (prog : σ → SetM α) (post : α → Prop) : σ → Prop :=
   fun st => (wp⟦prog st⟧ (⇓ res => ⌜post res⌝)).down
 
 notation:25 "[["p"]] " post => Box p post
 
+theorem Box.iff_run (prog : σ → SetM α) (post : α → Prop) (st : σ) :
+  (Box prog post) st ↔ (∀ st', st' ∈ SetM.run (prog st) → post st') := by rfl
+
+/--
+`Ensures prog pre post` is true iff after every successful run of `prog`
+starting from a state where `pre` holds, `post` holds for the result of `prog`.
+-/
 abbrev Ensures
     (prog : σ → SetM α) (pre : σ → Prop) (post : α → Prop) : Prop :=
   ∀ st, pre st → (Box prog post) st
 
 notation:25 pre " [["p"]] " post => Ensures p pre post
-
-theorem Box.iff_run (prog : σ → SetM α) (post : α → Prop) (st : σ) :
-  (Box prog post) st ↔ (∀ st', st' ∈ SetM.run (prog st) → post st') := by rfl
 
 namespace Ensures
 
@@ -80,24 +109,33 @@ theorem test_spec {P : Prop} {Q : PostCond Unit .pure} :
   exact h hres
 
 /--
-Specifies whether a trajectory, i.e a mapping from
-time points to states, follows the system throughout an interval.
+A semantic description of an ODE over states of type `σ`.
+
+Given a trajectory, that assigns every time point a state, and a time interval,
+it specifies the condition whether the trajectory follows the ODE's dynamics
+throughout that interval.
 -/
 abbrev SemanticODE (σ : Type u) :=
   (trajectory : ℝ → σ) → (interval : Set ℝ) → Prop
 
 /--
-Whether a trajectory satisfies an inital value problem
+States that `trajectory` is a valid evolution of `ode` from `initial` state
+for the given `duration`. So, it solves the initial value problem and satisfies
+the `domain` constraint inside the interval.
 -/
 def IsEvolution
     (trajectory : ℝ → σ) (ode : SemanticODE σ) (domain : σ → Prop)
     (inital : σ) (duration : ℝ) : Prop :=
   trajectory 0 = inital ∧
-    (∀ t ∈ Set.Icc 0 duration, domain (trajectory t)) ∧
-      ode trajectory (Set.Icc 0 duration)
+  (∀ t ∈ Set.Icc 0 duration, domain (trajectory t)) ∧
+  ode trajectory (Set.Icc 0 duration)
 
 /--
-Interpret a semantic ODE as a hybrid program
+Interprets a `SemanticODE` as a hybrid program.
+
+Starting from `st`, the program chooses a nonnegative duration and a valid
+trajectory that follows `ode` while remaining within `domain`, then returns
+the state reached at the end of the trajectory.
 -/
 def evolveSemantic
     (ode : SemanticODE σ) (domain : σ → Prop) : σ → SetM σ := fun st => do
@@ -128,14 +166,13 @@ theorem evolveSemantic_spec
   rcases hfinal with ⟨duration, hduration, trajectory, htrajectory, rfl⟩
   exact h duration hduration trajectory htrajectory
 
-/-- `f'` is the derivative of `f` along every trajectory of an ODE. -/
+/-- `f'` is the time-derivative of `f` along the trajectory of the `ode`. -/
 def HasPrime
     [NormedAddCommGroup E] [NormedSpace ℝ E]
     (ode : SemanticODE σ) (f f' : σ → E) : Prop :=
   ∀ trajectory interval, ode trajectory interval →
-    ∀ t ∈ interval,
-      HasDerivWithinAt
-      (fun t => f (trajectory t)) (f' (trajectory t)) interval t
+  ∀ t ∈ interval,
+  HasDerivWithinAt (fun t => f (trajectory t)) (f' (trajectory t)) interval t
 
 namespace SemanticODE
 
@@ -390,3 +427,5 @@ theorem semanticDI
     Ensures (evolveSemantic ode domain) pre (fun st => invariantRel (f st) 0) :=
   dInvariant changeRel invariantRel rule.compose rule.preserved
     ode domain pre f f' hprime hinit hchange
+
+end dLean

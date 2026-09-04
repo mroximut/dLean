@@ -3,6 +3,8 @@ import Mathlib.Analysis.SpecialFunctions.Trigonometric.Deriv
 import Mathlib.Tactic.Ring
 import dLean.Core.ODE
 
+namespace dLean
+
 open scoped RealInnerProductSpace
 
 namespace OdeDeriv
@@ -124,3 +126,5 @@ macro_rules
            | ode_deriv_step
            | (simp -failIfUnchanged only [Function.comp_apply, $simpDefinitions,*] <;>
               ring_nf)))
+
+end dLean

@@ -1,5 +1,6 @@
 import dLean.Tactic.OdeDeriv
 
+namespace dLean
 open Lean Meta Elab Tactic
 
 namespace AutoDiff
@@ -207,3 +208,4 @@ elab "autodiff" : tactic => withMainContext do
   runOdeDeriv f vectorField
 
 end AutoDiff
+end dLean

@@ -1,6 +1,26 @@
 import dLean.Core.Semantics
 import Mathlib.Analysis.ODE.Basic
 
+/-!
+# ODE
+
+This module connects concrete representations of ordinary differential
+equations to the trajectory-based semantics defined in `dLean.Core.Semantics`.
+
+The `Denotable` typeclass assigns an ODE representation a `SemanticODE` and
+records that its semantics is preserved when the time interval is restricted.
+The `ODE` instance is provided for autonomous vector fields `E → E`.
+The `evolve` operator then interprets any `Denotable` ODE as a hybrid
+program subject to an evolution-domain constraint.
+
+The remainder of the module provides representation-independent proof rules for
+differential cut, differential weakening, and differential invariant.
+Specialized invariant rules cover equality as well as non-strict and
+strict inequalities.
+-/
+
+namespace dLean
+
 /--
 `α` represents a type whose terms can be interpreted as ODEs over
 states of type `σ`.
@@ -154,3 +174,5 @@ theorem dIgt
     (hprime_ge : ∀ st, domain st → f' st ≥ 0) :
     Ensures (evolve ode domain) pre (fun st => f st > 0) :=
   dI (· > ·) f f' hprime hinit hprime_ge
+
+end dLean

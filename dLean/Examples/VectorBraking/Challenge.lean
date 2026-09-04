@@ -1,5 +1,6 @@
 import dLean.Core.ODE
 import dLean.Tactic.OdeDeriv
+open dLean
 open Std.Do
 set_option mvcgen.warning false
 
