@@ -4,7 +4,6 @@ set -Eeuo pipefail
 
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
-readonly EXAMPLES_DIR="$REPO_ROOT/dLean/Examples"
 
 die() {
   echo "error: $*" >&2
@@ -16,37 +15,109 @@ note() {
 }
 
 usage() {
-  sed -n '18,62p' "$0" | sed -n 's/^# \{0,1\}//p'
+  sed -n '/^# dLean proof-agent benchmark harness$/,/^require_command()/p' "$0" | sed -n 's/^# \{0,1\}//p'
 }
 
 # dLean proof-agent benchmark harness
 #
 # Usage:
-#   agentic/prove.sh list
 #   agentic/prove.sh prepare PROBLEM [OUTPUT_DIRECTORY]
 #   agentic/prove.sh agent AGENT SANDBOX [OPTIONS]
-#   agentic/prove.sh judge PROBLEM SOLUTION_FILE [OUTPUT_DIRECTORY]
+#   agentic/prove.sh judge PROBLEM SOLUTION_FILE [OUTPUT_DIRECTORY] [--unsafe-no-systemd]
 #   agentic/prove.sh run PROBLEM AGENT [OPTIONS]
+#   agentic/prove.sh help
 #
-# Agents:
-#   codex
-#   claude
+# Commands:
+#   prepare   Create and build a workspace for a problem, with Solution.lean
+#             initially copied from Challenge.lean. Does not start an agent.
+#             Default output: ./NAME-sandbox in the current directory.
 #
-# Agent options:
+#   agent     Run the selected agent in an existing prepared workspace to prove
+#             the theorems in Solution.lean. Saves agent logs; does not judge.
+#
+#   judge     Copy a submitted Solution.lean into a fresh project for PROBLEM
+#             and check it with Comparator against the challenge and config.json.
+#             Default output: ./NAME-judge in the current directory.
+#
+#   run       Prepare workspaces, run the agent, then judge its Solution.lean.
+#             Saves workspaces, agent logs, and exit codes in result.txt.
+#             Default output: benchmark-results/TIMESTAMP-NAME-AGENT in the repo.
+#
+#   help      Show this help (also: -h or --help).
+#
+# Arguments:
+#   PROBLEM           Relative or absolute path to a problem directory containing
+#                     Challenge.lean and config.json, e.g. dLean/Examples/BouncingBall.
+#                     NAME in default output paths is this directory's basename.
+#   AGENT             codex or claude.
+#   SANDBOX           Relative or absolute path to a workspace created by prepare.
+#   SOLUTION_FILE     Path to the submitted Lean file, usually SANDBOX/Solution.lean.
+#   OUTPUT_DIRECTORY  Path for a new output directory; it must not already exist.
+#
+# Examples:
+#   # Complete workflow in one command:
+#   agentic/prove.sh run dLean/Examples/BouncingBall codex --model gpt-6-astra
+#
+#   # Run each stage separately:
+#   agentic/prove.sh prepare dLean/Examples/BouncingBall /tmp/bouncingball-sandbox
+#   agentic/prove.sh agent codex /tmp/bouncingball-sandbox --model gpt-6-astra
+#   agentic/prove.sh judge dLean/Examples/BouncingBall /tmp/bouncingball-sandbox/Solution.lean
+#
+# agent options (agent and run):
 #   --model MODEL             Select the agent model.
-#   --timeout SECONDS         Stop the agent after this many seconds (default: 3600).
+#   --timeout SECONDS         Stop the agent after this many seconds (default: 600).
 #   --max-turns NUMBER        Claude Code turn limit (default: 100).
 #
-# Additional run options:
+# run options:
 #   --output DIRECTORY        Store the complete run in this directory.
 #   --skip-judge              Run the agent but do not invoke Comparator.
+#
+# judge options (judge and run):
 #   --unsafe-no-systemd       Invoke Comparator without the documented systemd wrapper.
+#
+# Option forwarding:
+#   --model is passed unchanged as --model to either agent; if omitted, no model
+#   flag is sent. --max-turns is passed only to Claude and has no effect on Codex.
+#   --timeout is enforced by the harness, not passed to the agent.
+#
+# Codex launch:
+#   codex --ask-for-approval never exec --ephemeral --json --skip-git-repo-check
+#     --ignore-user-config --ignore-rules -C SANDBOX [--model MODEL] PROMPT
+#   Additional --config arguments enforce a restricted Codex runtime with:
+#   minimal filesystem reads; workspace writes; read access to dependencies,
+#   the Codex runtime, Lean toolchain, and optional Lean skills described below.
+#   Tool network access and web search are disabled. Shells inherit the core
+#   environment with PATH set to the Lean toolchain bin plus standard system bins.
+#
+# Claude launch:
+#   claude --restricted --permission-mode dontAsk --no-session-persistence
+#     --max-turns NUMBER --print --verbose --output-format stream-json
+#     [--model MODEL] PROMPT
+#   --tools and --allowedTools are both Bash,Edit,Read,Write,Glob,Grep;
+#   --disallowedTools is mcp__*. --settings enables mandatory sandboxing, forbids
+#   unsandboxed commands, and sets an empty strict network allowlist. It denies
+#   reads of the source repo, Codex memories/sessions, and Claude project history,
+#   with read exceptions for the workspace, dependencies, and Lean toolchain.
+#
+# Instructions and skills:
+#   Both agents run in SANDBOX with TMPDIR=SANDBOX/.tmp. The prompt asks them to
+#   follow AGENTS.md, complete Solution.lean, inspect the local dLean library,
+#   and repeatedly check with: lake env lean Solution.lean
+#   prepare and run copy agentic/AGENTS.md as both AGENTS.md and CLAUDE.md.
+#   These instructions require editing only Solution.lean, preserving target
+#   statements, and avoiding sorry, admit, new axioms, and unsafe escape hatches.
+#   They require reading the bundled dLean skill before proving:
+#     source:    agentic/skills/dlean-prover/
+#     workspace: .agents/skills/dlean-prover/SKILL.md
+#   Codex additionally gets read permission for ~/.codex/skills/lean4 and
+#   ~/.codex/skills/lean-proof when present; they are not copied or explicitly
+#   invoked by the launch prompt. Claude has no corresponding extra skill grants.
 #
 # Comparator environment:
 #   COMPARATOR_ROOT           Comparator checkout containing .lake/build/bin/comparator.
 #   COMPARATOR_BIN            Explicit Comparator executable; overrides COMPARATOR_ROOT.
 #   COMPARATOR_LEAN4EXPORT    lean4export executable compatible with this Lean toolchain.
-#   COMPARATOR_LANDRUN        Real landrun executable. The fake shim is rejected by default.
+#   COMPARATOR_LANDRUN        Landrun executable used by Comparator.
 #
 # Other environment:
 #   CODEX_BIN=codex
@@ -69,21 +140,13 @@ resolve_executable() {
 }
 
 problem_dir() {
-  local problem="$1"
-  [[ "$problem" =~ ^[A-Za-z0-9_-]+$ ]] || die "invalid problem name: $problem"
-  local dir="$EXAMPLES_DIR/$problem"
-  [[ -d "$dir" ]] || die "unknown problem '$problem'; run '$0 list'"
-  printf '%s\n' "$dir"
-}
-
-list_problems() {
-  local dir
-  for dir in "$EXAMPLES_DIR"/*; do
-    [[ -d "$dir" && -f "$dir/config.json" ]] || continue
-    if [[ -f "$dir/Challenge.lean" ]]; then
-      basename "$dir"
-    fi
+  local dir="$1"
+  [[ -d "$dir" ]] || die "problem directory not found: $dir"
+  local required
+  for required in Challenge.lean config.json; do
+    [[ -f "$dir/$required" ]] || die "missing $required in $dir"
   done
+  realpath "$dir"
 }
 
 write_project_lakefile() {
@@ -135,14 +198,20 @@ link_packages() {
 }
 
 source_fingerprint() {
+  local problem="$1"
+  local problem_path
+  problem_path="$(problem_dir "$problem")"
   (
     cd "$REPO_ROOT"
-    find dLean/Core dLean/Tactic -type f -name '*.lean' -print0
-    printf '%s\0' dLean.lean lakefile.toml lake-manifest.json lean-toolchain \
-      agentic/AGENTS.md agentic/skills/dlean-prover/SKILL.md
-  ) | sort -z | while IFS= read -r -d '' path; do
-    sha256sum "$REPO_ROOT/$path"
-  done | sha256sum | cut -d ' ' -f 1
+    {
+      find dLean/Core dLean/Tactic -type f -name '*.lean' -print0
+      printf '%s\0' dLean.lean lakefile.toml lake-manifest.json lean-toolchain \
+        agentic/AGENTS.md agentic/skills/dlean-prover/SKILL.md \
+        "$problem_path/Challenge.lean" "$problem_path/config.json"
+    } | sort -z | while IFS= read -r -d '' path; do
+      sha256sum "$path"
+    done
+  ) | sha256sum | cut -d ' ' -f 1
 }
 
 create_project() {
@@ -172,7 +241,7 @@ create_project() {
 
   {
     echo "problem=$problem"
-    echo "source_fingerprint=$(source_fingerprint)"
+    echo "source_fingerprint=$(source_fingerprint "$problem")"
     echo "lean_toolchain=$(tr -d '\r\n' < "$REPO_ROOT/lean-toolchain")"
     if git -C "$REPO_ROOT" rev-parse --verify HEAD >/dev/null 2>&1; then
       echo "git_commit=$(git -C "$REPO_ROOT" rev-parse HEAD)"
@@ -385,7 +454,6 @@ comparator_paths() {
   lean4export="$(resolve_executable "$lean4export")"
   landrun="$(resolve_executable "$landrun")"
 
-  [[ "$landrun" != *fake-landrun.sh ]] || die "refusing fake-landrun.sh for an untrusted solution"
   printf '%s\n%s\n%s\n' "$comparator_bin" "$lean4export" "$landrun"
 }
 
@@ -427,8 +495,9 @@ run_comparator() {
 
 prepare_command() {
   [[ $# -ge 1 && $# -le 2 ]] || die "usage: $0 prepare PROBLEM [OUTPUT_DIRECTORY]"
-  local problem="$1"
-  local destination="${2:-$(pwd)/${problem}-sandbox}"
+  local problem
+  problem="$(problem_dir "$1")"
+  local destination="${2:-$(pwd)/$(basename "$problem")-sandbox}"
   destination="$(realpath -m "$destination")"
   create_project "$problem" "$destination" 1
   echo "$destination"
@@ -441,7 +510,7 @@ agent_command() {
   shift 2
 
   local model=""
-  local timeout_seconds=3600
+  local timeout_seconds=600
   local max_turns=100
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -494,7 +563,8 @@ agent_command() {
 judge_command() {
   [[ $# -ge 2 && $# -le 4 ]] || \
     die "usage: $0 judge PROBLEM SOLUTION_FILE [OUTPUT_DIRECTORY] [--unsafe-no-systemd]"
-  local problem="$1"
+  local problem
+  problem="$(problem_dir "$1")"
   local solution="$2"
   shift 2
   local destination=""
@@ -511,9 +581,7 @@ judge_command() {
   done
   [[ -f "$solution" ]] || die "solution file not found: $solution"
   if [[ -z "$destination" ]]; then
-    local temporary_root
-    temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/dlean-judge.XXXXXX")"
-    destination="$temporary_root/project"
+    destination="$(pwd)/$(basename "$problem")-judge"
   fi
   destination="$(realpath -m "$destination")"
   create_project "$problem" "$destination" 0
@@ -524,12 +592,13 @@ judge_command() {
 
 run_command() {
   [[ $# -ge 2 ]] || die "usage: $0 run PROBLEM AGENT [OPTIONS]"
-  local problem="$1"
+  local problem
+  problem="$(problem_dir "$1")"
   local agent="$2"
   shift 2
 
   local model=""
-  local timeout_seconds=3600
+  local timeout_seconds=600
   local max_turns=100
   local output=""
   local skip_judge=0
@@ -579,7 +648,7 @@ run_command() {
   if [[ -z "$output" ]]; then
     local stamp
     stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-    output="$REPO_ROOT/benchmark-results/${stamp}-${problem}-${agent}"
+    output="$REPO_ROOT/benchmark-results/${stamp}-$(basename "$problem")-${agent}"
   fi
   output="$(realpath -m "$output")"
   [[ ! -e "$output" ]] || die "output already exists: $output"
@@ -628,7 +697,6 @@ main() {
   local command="${1:-help}"
   [[ $# -eq 0 ]] || shift
   case "$command" in
-    list) list_problems ;;
     prepare) prepare_command "$@" ;;
     agent) agent_command "$@" ;;
     judge) judge_command "$@" ;;

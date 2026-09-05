@@ -8,7 +8,7 @@ statements. Do not import `Challenge`, and do not use `sorry`, `admit`, new axio
 hatches. Do not use the network or retrieve external repositories, solutions, or proof files.
 
 The dLean library source is available under `dLean/Core` and `dLean/Tactic`. Inspect and use it.
-Before proving, read and follow `.agents/skills/dlean-prover/SKILL.md` when it contains instructions.
+Before proving, read and follow `.agents/skills/dlean-prover/SKILL.md`.
 Check progress with:
 
     lake env lean Solution.lean
