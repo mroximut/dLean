@@ -104,14 +104,6 @@ export COMPARATOR_ROOT=/absolute/path/to/comparator
 export COMPARATOR_LANDRUN=/absolute/path/to/landrun
 ```
 
-`PROBLEM` is a relative or absolute directory path containing `Challenge.lean` and `config.json`, for example:
-
-```text
-dLean/Examples/BouncingBall/
-  Challenge.lean
-  config.json
-```
-
 Run the complete workflow from the repository root (it creates the agent workspace under ./benchmark-results):
 
 ```sh
