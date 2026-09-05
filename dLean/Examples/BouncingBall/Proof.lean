@@ -1,5 +1,19 @@
 import dLean.Core.ODE
 import dLean.Tactic.AutoDiff
+
+/-!
+# Aerodynamic Bouncing Ball
+
+This module proves `aerodynamic_quantum_safe`, an example from the
+[LFCPS book](https://doi.org/10.1007/978-3-319-63588-0). A ball released from
+rest between the ground and height `H` remains in that interval after any
+finite number of bounces. The model splits upward and downward motion to account
+for the direction vertical velocity `v` and reverses velocity at the ground
+with elastic damping factor `c` between zero and one. `g` is the gravitaitonal
+constant and `r` is the air resistance. The loop invariant combines
+nonnegative height with the energy bound `v^2 + 2*g*x <= 2*g*H`.
+-/
+
 open dLean
 open Std.Do
 set_option mvcgen.warning false
@@ -7,13 +21,13 @@ set_option mvcgen.warning false
 @[simp] def up (g r : ℝ) : ℝ × ℝ → ℝ × ℝ
   | (_x, v) => (v, -g - r * v ^ 2)
 
-@[simp] def updom : ℝ × ℝ → Prop
+@[simp] def upDomain : ℝ × ℝ → Prop
   | (x, v) => 0 ≤ x ∧ 0 ≤ v
 
 @[simp] def down (g r : ℝ) : ℝ × ℝ → ℝ × ℝ
   | (_x, v) => (v, -g + r * v ^ 2)
 
-@[simp] def downdom : ℝ × ℝ → Prop
+@[simp] def downDomain : ℝ × ℝ → Prop
   | (x, v) => 0 ≤ x ∧ v ≤ 0
 
 def prog (g c r x v : ℝ) := do
@@ -22,7 +36,8 @@ def prog (g c r x v : ℝ) := do
   for _ in [:n] do
     if x = 0 then
       v := -c * v
-    (x, v) ← (evolve (up g r) updom ∪ evolve (down g r) downdom) (x, v)
+    (x, v) ← (evolve (up g r) upDomain ∪
+              evolve (down g r) downDomain) (x, v)
   return x
 
 @[simp] def energyGap (g H : ℝ) : ℝ × ℝ → ℝ
@@ -38,7 +53,7 @@ def prog (g c r x v : ℝ) := do
   | (x, v) => energyGap g H (x, v) ≤ 0 ∧ 0 ≤ x
 
 theorem upward_preserves (g H r : ℝ) (hr : 0 ≤ r) :
-    invariant g H [[evolve (up g r) updom]] invariant g H := by
+    invariant g H [[evolve (up g r) upDomain]] invariant g H := by
   apply dC (cut := fun (x, v) => energyGap g H (x, v) ≤ 0)
   · apply dIle (energyGap g H)
     · autodiff
@@ -52,7 +67,7 @@ theorem upward_preserves (g H r : ℝ) (hr : 0 ≤ r) :
     simp_all
 
 theorem downward_preserves (g H r : ℝ) (hr : 0 ≤ r) :
-    invariant g H [[evolve (down g r) downdom]] invariant g H := by
+    invariant g H [[evolve (down g r) downDomain]] invariant g H := by
   apply dC (cut := fun (x, v) => energyGap g H (x, v) ≤ 0)
   · apply dIle (energyGap g H)
     · autodiff
@@ -68,7 +83,7 @@ theorem downward_preserves (g H r : ℝ) (hr : 0 ≤ r) :
 
 theorem continuous_preserves (hr : 0 ≤ r) :
     invariant g H
-    [[evolve (up g r) updom ∪ evolve (down g r) downdom]]
+    [[evolve (up g r) upDomain ∪ evolve (down g r) downDomain]]
     invariant g H := by
   apply Ensures.nondet_choice
   · apply upward_preserves

@@ -50,13 +50,6 @@ Identify a predicate strong enough both to survive one iteration and to imply th
 claim. Define it as a named `@[simp] def` when controlled unfolding will help arithmetic and
 structural simplification.
 
-Typical invariant designs in this library are:
-
-- an energy or barrier inequality plus evolution-domain facts for scalar hybrid systems;
-- a positive-slack separating margin, with its geometric witnesses stored existentially, for
-  vector systems;
-- pairwise ordering of every active pair for quantified systems.
-
 First prove focused helper theorems for the continuous commands. Keep `mvcgen` for imperative
 composition and use dLean's differential rules for evolution. This separates program VCs from the
 mathematics of the invariant.
@@ -74,11 +67,6 @@ mvcgen invariants
 ```
 
 Match `state` to all mutable locals, in declaration order. Examples of generated shapes are:
-
-```lean
-| inv1 => ⇓⟨xs, (x, v)⟩ => ⌜invariant g H (x, v)⌝
-| inv1 => ⇓⟨xs, (created, x, v, a)⟩ => ⌜invariant created x v a⌝
-```
 
 `xs` is `mvcgen`'s remaining loop-enumeration state; retain it in the pattern even when the
 mathematical invariant does not mention it. Destructured `let mut` bindings are threaded as tuples,
@@ -125,22 +113,6 @@ Use the rules according to the mathematical argument:
 - `Ensures.iff_run`: switch to explicit initial/final states when lifting a pointwise preservation
   theorem through a quantified invariant.
 
-A standard differential-cut proof is:
-
-```lean
-apply dC (cut := fun st => observable st ≤ 0)
-· apply dIle observable
-  · autodiff
-  · -- the precondition initially implies observable <= 0
-  · -- the domain implies the Lie derivative <= 0
-· apply dW
-  -- rebuild the desired invariant from the strengthened domain
-```
-
-Nested cuts are intentional when one differential invariant depends on another. For example,
-quantified ordering is naturally proved by preserving acceleration gap `<= 0`, then velocity gap
-`<= 0`, then position gap `< 0`, followed by `dW` to reassemble the ordering predicate.
-
 For a nondeterministic continuous command, prove each ODE once and compose them:
 
 ```lean
@@ -148,10 +120,6 @@ apply Ensures.nondet_choice
 · exact left_evolution_preserves ...
 · exact right_evolution_preserves ...
 ```
-
-When the invariant quantifies over indices or contains a disjunction, it can be clearer to use
-`(Ensures.iff_run _ _ _).mpr`, introduce the final state and evolution-membership hypothesis, and
-apply the pointwise preservation theorem in each branch.
 
 ## Choose the derivative tactic that matches the ODE representation
 
@@ -171,7 +139,7 @@ For quantified ODEs represented by `Set I × (F → F)`:
 - provide the named gap, projection, and motion definitions needed for simplification, for example
   `qode_deriv [vGap', motion]`;
 - the tactic obtains coordinate derivatives only for active indices, so retain and supply index
-  membership facts such as `i ∈ created` and `j ∈ created`.
+  membership facts such as `i ∈ active` and `j ∈ active`.
 
 Both derivative tactics unfold the ODE, domain, observable, and proposed derivative automatically.
 Add explicit definitions only when the current goal shows that further unfolding is required.
@@ -183,17 +151,9 @@ Add explicit definitions only when the current goal shows that further unfolding
 - Use `simp`, `simp_all`, or `grind [definitions]` to expose tuple projections, domains, record-free
   state updates, and invariant structure.
 - Name non-obvious arithmetic or geometric facts with `have` before calling `linarith` or
-  `nlinarith`. Typical facts include `sq_nonneg v`, the sign of an odd power, `c ^ 2 ≤ 1`, and
-  `-1 ≤ ⟨u, d⟩` for unit vectors.
-- Destruct existential invariant witnesses explicitly with `rcases`; automation will not invent or
-  extract the separating direction and positive slack.
+  `nlinarith`.
 - In the final postcondition VC, unpack only the invariant information needed to show the returned
   value is safe.
-
-When the requested style is `mvcgen`, do not replace this architecture with a large direct proof
-over set membership merely because it can be unfolded. The library examples use direct run
-reasoning as a localized bridge, such as `Ensures.iff_run`, while program composition remains in
-WP/`mvcgen` form.
 
 ## Diagnose by layer
 
@@ -209,8 +169,4 @@ WP/`mvcgen` form.
   supported function/product `Derivable` instances and that the coordinate is in the active set.
 - If arithmetic automation stalls, simplify the named observable and derivative, normalize with
   `ring_nf`, then state the missing sign fact explicitly.
-
-## Final checks
-
-1. Run `lake env lean path/to/EditedFile.lean` from the project root.
 

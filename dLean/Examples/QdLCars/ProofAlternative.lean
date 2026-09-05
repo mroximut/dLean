@@ -11,30 +11,30 @@ abbrev CarState := ℝ × ℝ × ℝ
 @[simp] def v (f : Car → CarState) (car : Car) : ℝ := (f car).2.1
 @[simp] def a (f : Car → CarState) (car : Car) : ℝ := (f car).2.2
 
-@[simp] def motion (created : Finset Car) :
+@[simp] def motion (active : Finset Car) :
     Set Car × ((Car → CarState) → (Car → CarState)) :=
-  (created, fun f => fun car =>
+  (active, fun f => fun car =>
               (v f car, a f car, 0))
 
-@[simp] def dom (_ : Car → CarState) : Prop := True
+@[simp] def domain (_ : Car → CarState) : Prop := True
 
 @[reducible] def Ordered (f : Car → CarState) (i j : Car) : Prop :=
   x f i < x f j ∧ v f i ≤ v f j ∧ a f i ≤ a f j
 
-def prog (created : Finset Car) (f : Car → CarState) := do
-  let mut created := created
+def prog (active : Finset Car) (f : Car → CarState) := do
+  let mut active := active
   let mut f := f
   let n ← choose ℕ
   for _ in [:n] do
-    let i ← chooseS {i | i ∉ created}
-    created := insert i created
-    unless (∀ j ∈ created, i ≠ j →
+    let i ← chooseS {i | i ∉ active}
+    active := insert i active
+    unless (∀ j ∈ active, i ≠ j →
         Ordered f i j ∨ Ordered f j i) do abort
-    f ← evolve (motion created) dom f
-  return (created, fun car => x f car)
+    f ← evolve (motion active) domain f
+  return (active, fun car => x f car)
 
-@[simp] def invariant (created : Finset Car) (f : Car → CarState) : Prop :=
-  ∀ i ∈ created, ∀ j ∈ created,
+@[simp] def invariant (active : Finset Car) (f : Car → CarState) : Prop :=
+  ∀ i ∈ active, ∀ j ∈ active,
     i ≠ j → Ordered f i j ∨ Ordered f j i
 
 @[simp] def aGap (i j : Car) (f : Car → CarState) : ℝ :=
@@ -52,10 +52,10 @@ def prog (created : Finset Car) (f : Car → CarState) := do
 @[simp] def xGap' (i j : Car) (f : Car → CarState) : ℝ :=
   v f i - v f j
 
-theorem ordered_preserved (created : Finset Car) (i j : Car)
-    (hi : i ∈ created) (hj : j ∈ created) :
+theorem ordered_preserved (active : Finset Car) (i j : Car)
+    (hi : i ∈ active) (hj : j ∈ active) :
     (fun f => Ordered f i j)
-    [[evolve (motion created) dom]]
+    [[evolve (motion active) domain]]
     (fun f => Ordered f i j) := by
   apply dC (cut := fun f => aGap i j f ≤ 0)
   · apply dIle (aGap i j) (fun _ => 0)
@@ -75,30 +75,30 @@ theorem ordered_preserved (created : Finset Car) (i j : Car)
       · apply dW
         grind only [aGap, xGap, vGap]
 
-theorem motion_preserves_invariant (created : Finset Car) :
-    invariant created
-    [[evolve (motion created) dom]]
-    invariant created := by
+theorem motion_preserves_invariant (active : Finset Car) :
+    invariant active
+    [[evolve (motion active) domain]]
+    invariant active := by
   apply (Ensures.iff_run _ _ _).mpr
   intro f hInvariant f' hEvolution i hi j hj hij
   rcases hInvariant i hi j hj hij with hForward | hBackward
-  · exact Or.inl (ordered_preserved created i j hi hj
+  · exact Or.inl (ordered_preserved active i j hi hj
       f hForward f' hEvolution)
-  · exact Or.inr (ordered_preserved created j i hj hi
+  · exact Or.inr (ordered_preserved active j i hj hi
       f hBackward f' hEvolution)
 
 theorem dccs_collision_free :
-    ∀ created f, invariant created f →
-      ∀ res ∈ SetM.run (prog created f),
-        let (created', x_res) := res
-        ∀ i ∈ created', ∀ j ∈ created', i ≠ j → x_res i ≠ x_res j := by
-  intro created f hinv res hrun
+    ∀ active f, invariant active f →
+      ∀ res ∈ SetM.run (prog active f),
+        let (active', x_res) := res
+        ∀ i ∈ active', ∀ j ∈ active', i ≠ j → x_res i ≠ x_res j := by
+  intro active f hinv res hrun
   apply SetM.of_wp_run_mem hrun
   unfold prog
   mvcgen
   intros
   mvcgen invariants
-  | inv1 => ⇓⟨xs, (created, f)⟩ => ⌜invariant created f⌝
+  | inv1 => ⇓⟨xs, (active, f)⟩ => ⌜invariant active f⌝
   case vc1.step =>
     intro _ _
     mvcgen

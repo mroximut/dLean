@@ -1,5 +1,29 @@
 import dLean.Core.ODE
 import dLean.Tactic.AutoDiff
+
+/-!
+# Braking in a real vector space
+
+Example from (https://lfcps.org/course/lfcps20/projects/akabra_cslamber.pdf)
+
+Consider a vehicle with position vector `x` in an arbitrary dimensional real
+inner product space and scalar speed `v`. The origin represents a point the
+vehicle must avoid, and `B` is its constant positive braking strength. Each
+loop iteration chooses an arbitrary unit direction `d` and evolves according to
+`x' = v * d` and `v' = -B` while speed remains nonnegative. The direction stays
+fixed during each continuous phase but may change between phases.
+
+This module proves `vector_braking_safe`: if the initial speed is positive and
+the stopping distance `v^2 / (2*B)` is strictly less than the initial distance
+to the origin, every returned position remains different from the origin after
+any finite number of loop iterations.
+
+The invariant uses a unit vector `u` and a positive slack `eps` to bound the
+margin `v^2 - 2*B*inner(u, x) + eps` by zero. Since `eps > 0`, this bound
+forces the projection `inner(u, x)` to remain positive and therefore excludes
+`x = 0`.
+-/
+
 open dLean
 open Std.Do
 set_option mvcgen.warning false
@@ -10,7 +34,7 @@ open scoped RealInnerProductSpace
 @[simp] def brake (d : V) (B : ℝ) : V × ℝ → V × ℝ
   | (_x, v) => (v • d, -B)
 
-@[simp] def dom : V × ℝ → Prop
+@[simp] def domain : V × ℝ → Prop
   | (_x, v) => 0 ≤ v
 
 def prog (B v : ℝ) (x : V) := do
@@ -18,7 +42,7 @@ def prog (B v : ℝ) (x : V) := do
   let n ← choose ℕ
   for _ in [:n] do
     let d ← choose {d : V // ‖d‖ = 1}
-    (x, v) ← evolve (brake (d : V) B) dom (x, v)
+    (x, v) ← evolve (brake (d : V) B) domain (x, v)
   return x
 
 @[simp] def margin (u : V) (eps B : ℝ) : V × ℝ → ℝ
@@ -35,27 +59,27 @@ def prog (B v : ℝ) (x : V) := do
 theorem margin_preserved
     (u d : V) (eps B : ℝ) (hB : 0 < B) (hu : ‖u‖ = 1) (hd : ‖d‖ = 1) :
     (fun (x, v) => margin u eps B (x, v) ≤ 0)
-    [[evolve (brake d B) dom]]
+    [[evolve (brake d B) domain]]
     (fun (x, v) => margin u eps B (x, v) ≤ 0) := by
   apply dIle (margin u eps B)
   · autodiff
   · simp_all
   · intro (x, v) _
     have : 0 ≤ 1 + ⟪u, d⟫ := by
-      linarith [neg_one_le_real_inner_of_norm_eq_one hu hd] --CS
+      linarith [neg_one_le_real_inner_of_norm_eq_one hu hd] --Cauchy Schwartz
     have : -2 * B * v ≤ 0 := by simp_all
     simp
     nlinarith
 
 theorem evolution_preserves
     (d : V) (B : ℝ) (hB : 0 < B) (hd : ‖d‖ = 1) :
-    invariant B [[evolve (brake d B) dom]] invariant B := by
+    invariant B [[evolve (brake d B) domain]] invariant B := by
   intro _ hinv
   rcases hinv with ⟨⟨_, _⟩, n, _, eps, _, _⟩
   apply dC (cut := fun st => margin n eps B st ≤ 0)
   · solve_by_elim
   · apply dW
-    grind [= margin, = dom, = invariant]
+    grind [= margin, = domain, = invariant]
   · grind [margin_preserved]
 
 theorem initial_invariant

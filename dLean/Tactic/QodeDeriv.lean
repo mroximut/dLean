@@ -15,26 +15,26 @@ namespace Derivable
 
 theorem deriv_fst
     {E₁ E₂ : Type} [Derivable I E₁] [Derivable I E₂]
-    {created : Set I} {trajectory : ℝ → E₁ × E₂} {rhs : E₁ × E₂}
+    {active : Set I} {trajectory : ℝ → E₁ × E₂} {rhs : E₁ × E₂}
     {interval : Set ℝ} {t : ℝ}
-    (h : has_deriv created trajectory rhs interval t) :
-    has_deriv created (fun τ => (trajectory τ).1) rhs.1 interval t :=
+    (h : has_deriv active trajectory rhs interval t) :
+    has_deriv active (fun τ => (trajectory τ).1) rhs.1 interval t :=
   h.1
 
 theorem deriv_snd
     {E₁ E₂ : Type} [Derivable I E₁] [Derivable I E₂]
-    {created : Set I} {trajectory : ℝ → E₁ × E₂} {rhs : E₁ × E₂}
+    {active : Set I} {trajectory : ℝ → E₁ × E₂} {rhs : E₁ × E₂}
     {interval : Set ℝ} {t : ℝ}
-    (h : has_deriv created trajectory rhs interval t) :
-    has_deriv created (fun τ => (trajectory τ).2) rhs.2 interval t :=
+    (h : has_deriv active trajectory rhs interval t) :
+    has_deriv active (fun τ => (trajectory τ).2) rhs.2 interval t :=
   h.2
 
 theorem hasDerivWithinAt_apply
     {F : Type} [NormedAddCommGroup F] [NormedSpace ℝ F]
-    {created : Set I} {trajectory : ℝ → I → F} {rhs : I → F}
+    {active : Set I} {trajectory : ℝ → I → F} {rhs : I → F}
     {interval : Set ℝ} {t : ℝ}
-    (h : has_deriv created trajectory rhs interval t)
-    (i : I) (hi : i ∈ created) :
+    (h : has_deriv active trajectory rhs interval t)
+    (i : I) (hi : i ∈ active) :
     HasDerivWithinAt (fun τ => trajectory τ i) (rhs i) interval t :=
   h i hi
 

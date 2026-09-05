@@ -7,13 +7,13 @@ set_option mvcgen.warning false
 @[simp] def up (g r : ℝ) : ℝ × ℝ → ℝ × ℝ
   | (_x, v) => (v, -g - r * v ^ 2)
 
-@[simp] def updom : ℝ × ℝ → Prop
+@[simp] def upDomain : ℝ × ℝ → Prop
   | (x, v) => 0 ≤ x ∧ 0 ≤ v
 
 @[simp] def down (g r : ℝ) : ℝ × ℝ → ℝ × ℝ
   | (_x, v) => (v, -g + r * v ^ 2)
 
-@[simp] def downdom : ℝ × ℝ → Prop
+@[simp] def downDomain : ℝ × ℝ → Prop
   | (x, v) => 0 ≤ x ∧ v ≤ 0
 
 def prog (g c r x v : ℝ) := do
@@ -22,7 +22,8 @@ def prog (g c r x v : ℝ) := do
   for _ in [:n] do
     if x = 0 then
       v := -c * v
-    (x, v) ← (evolve (up g r) updom ∪ evolve (down g r) downdom) (x, v)
+    (x, v) ← (evolve (up g r) upDomain ∪
+              evolve (down g r) downDomain) (x, v)
   return x
 
 theorem aerodynamic_quantum_safe :
